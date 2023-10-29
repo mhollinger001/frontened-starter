@@ -2,11 +2,15 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Friend, Post, User, WebSession } from "./app";
+import { Comment, Exercise, Friend, Lesson, Post, Question, User, Video, WebSession } from "./app";
 import { PostDoc, PostOptions } from "./concepts/post";
+import { QuestionDoc } from "./concepts/question";
 import { UserDoc } from "./concepts/user";
+import { VideoDoc } from "./concepts/video";
 import { WebSessionDoc } from "./concepts/websession";
 import Responses from "./responses";
+import { subLesson } from "concepts/lesson";
+import { ExerciseDoc } from "concepts/exercise";
 
 class Routes {
   @Router.get("/session")
@@ -135,6 +139,183 @@ class Routes {
     const user = WebSession.getUser(session);
     const fromId = (await User.getUserByUsername(from))._id;
     return await Friend.rejectRequest(fromId, user);
+  }
+
+  @Router.get("/comments")
+  async getComments() {
+    return await Comment.getComments();
+  }
+
+  @Router.get("/comments/:username")
+  async getCommentsByUsername(username: string) {
+    const id = (await User.getUserByUsername(username))._id;
+    return await Comment.getCommentsByAuthorId(id);
+  }
+
+  @Router.get("/reply/:_id")
+  async getReplies(_id: ObjectId) {
+    return await Comment.getRepliesFromId(_id);
+  }
+
+  @Router.post("/comments")
+  async createComment(session: WebSessionDoc, content: string, parentId: ObjectId | null) {
+    const user = WebSession.getUser(session);
+    return await Comment.create(user, content, parentId);
+  }
+
+  @Router.delete("/comments")
+  async deleteAllComments() {
+    return await Comment.deleteAll();
+  }
+  
+  @Router.get("/exercise/:_id")
+  async getExercisesByTitle(_id: ObjectId) {
+    return await Exercise.getExerciseById(_id);
+  }
+
+  @Router.post("/exercise")
+  async createExercise(title: string) {
+    return await Exercise.create(title, []);
+  }
+
+  @Router.patch("/exercise")
+  async updateExercise(_id: ObjectId, update: Partial<ExerciseDoc>) {
+    return await Exercise.update(_id, update);
+  } 
+
+  @Router.patch("/exercise/add/:_id")
+  async addToExercise(_id: ObjectId, question: ObjectId, location: number = -1) {
+    return await Exercise.addQuestions(_id, [question], location);
+  } 
+  
+  @Router.patch("/exercise/remove/:_id")
+  async removeFromExercise(_id: ObjectId, question: ObjectId) {
+    return await Exercise.removeQuestions(_id, new Set([question]))
+  } 
+
+  @Router.delete("/exercise")
+  async deleteExercise(_id: ObjectId) {
+    return await Exercise.delete(_id);
+  }
+
+  @Router.get("/question/:_id")
+  async getQuestion(_id: ObjectId) {
+    return await Question.getQuestionById(_id);
+  }
+
+  @Router.post("/question")
+  async createQuestion(question: string, answerType: string, answer: string) {
+    return await Question.create(question, answerType, answer);
+  }
+
+  @Router.patch("/question/:_id")
+  async updateQuestion(_id: ObjectId, update: Partial<QuestionDoc>) {
+    return await Question.update(_id, update);
+  }
+
+  @Router.delete("/question")
+  async deleteQuestion(_id: ObjectId) {
+    return await Question.delete(_id);
+  }
+
+  @Router.get("/video/:_id")
+  async getVideo(_id: ObjectId) {
+    return await Video.getVideoById(_id);
+  }
+
+  @Router.post("/video")
+  async createVideo(title: string, videoUrl: string) {
+    return await Video.create(title, videoUrl);
+  }
+
+  @Router.patch("/video")
+  async updateVideo(_id: ObjectId, update: Partial<VideoDoc>) {
+    return await Video.update(_id, update);
+  }
+
+  @Router.delete("/video")
+  async deleteVideo(_id: ObjectId) {
+    return await Video.delete(_id);
+  }
+
+  @Router.get("/lesson")
+  async getLesson(_id: ObjectId) {
+    return await Responses.lesson(await Lesson.getLessonById(_id));
+  }
+
+  @Router.get("/lessons")
+  async getLessons(author?: string) {
+    let lessons;
+    if (author) {
+      const id = (await User.getUserByUsername(author))._id;
+      lessons = await Lesson.getByAuthor(id);
+    } else {
+      lessons = await Lesson.getLessons({});
+    }
+    return await Responses.lessons(lessons);
+  }
+
+  @Router.post("/lesson")
+  async createLesson(session: WebSessionDoc, title: string, subLessons: subLesson[]) {
+    const user = WebSession.getUser(session);
+    const subLessonIds: ObjectId[] = [];
+    for (const subLesson of subLessons) {
+      if (subLesson.type === 'video' && subLesson.videoUrl) {
+        const video = await Video.create(subLesson.title, subLesson.videoUrl);
+        if (video.video?._id) subLessonIds.push(video.video._id);
+      } else if (subLesson.type === 'exercise' && subLesson.questions) {
+        const questions: ObjectId[] = [];
+        for (const questionInfo of subLesson.questions) {
+          const question = await Question.create(questionInfo.question, questionInfo.answerType, questionInfo.answer)
+          if (question.question?._id) questions.push(question.question._id);
+        }
+        const exercise = await Exercise.create(subLesson.title, questions);
+        if (exercise.exercise?._id) subLessonIds.push(exercise.exercise._id);
+      }
+    }
+    return await Lesson.create(user, title, subLessonIds, subLessons.map((subLesson) => subLesson.type));
+  }
+
+  @Router.patch("/lesson")
+  async updateLesson(session: WebSessionDoc, _id: ObjectId, title: string, subLessons: subLesson[]) {
+    const user = WebSession.getUser(session);
+    const subLessonIds: ObjectId[] = [];
+    for (const subLesson of subLessons) {
+      if (subLesson.type === 'video' && subLesson.videoUrl) {
+        const video = await Video.create(subLesson.title, subLesson.videoUrl);
+        if (video.video?._id) subLessonIds.push(video.video._id);
+      } else if (subLesson.type === 'exercise' && subLesson.questions) {
+        const questions: ObjectId[] = [];
+        for (const questionInfo of subLesson.questions) {
+          const question = await Question.create(questionInfo.question, questionInfo.answerType, questionInfo.answer)
+          if (question.question?._id) questions.push(question.question._id);
+        }
+        const exercise = await Exercise.create(subLesson.title, questions);
+        if (exercise.exercise?._id) subLessonIds.push(exercise.exercise._id);
+      }
+    }
+    return await Lesson.create(user, title, subLessonIds, subLessons.map((subLesson) => subLesson.type));
+  }
+
+  @Router.patch("/lesson/add/:_id")
+  async addToLesson(session: WebSessionDoc, _id: ObjectId, subLesson: ObjectId, location: number = -1) {
+    const user = WebSession.getUser(session);
+    await Lesson.isAuthor(user, _id);
+    return await Lesson.addSubLessons(_id, [subLesson], [], location);
+  } 
+  
+  @Router.patch("/lesson/remove")
+  async removeFromLesson(session: WebSessionDoc, _id: ObjectId, index: number) {
+    const user = WebSession.getUser(session);
+    await Lesson.isAuthor(user, _id);
+    return await Lesson.removeSubLesson(_id, index)
+  } 
+
+  @Router.delete("/lesson")
+  async deleteLesson(session: WebSessionDoc, _id: ObjectId) {
+    const user = WebSession.getUser(session);
+    await Lesson.isAuthor(user, _id);
+    return await Lesson.delete(_id);
   }
 }
 

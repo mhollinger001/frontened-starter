@@ -6,6 +6,9 @@ import HomeView from "../views/HomeView.vue";
 import LoginView from "../views/LoginView.vue";
 import NotFoundView from "../views/NotFoundView.vue";
 import SettingView from "../views/SettingView.vue";
+import CreateLessonView from "../views/CreateLessonView.vue";
+import EditLessonView from "../views/EditLessonView.vue";
+import LessonView from "../views/LessonView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -32,6 +35,22 @@ const router = createRouter({
           return { name: "Settings" };
         }
       },
+    },
+    {
+      path: "/createlesson",
+      name: "Create Lesson",
+      component: CreateLessonView,
+      meta: { requiresAuth: true },
+    },
+    {
+      path: "/lesson/:_id",
+      name: 'Lesson',
+      component: LessonView,
+    },
+    {
+      path: "/lesson/:_id/edit",
+      name: 'Edit Lesson',
+      component: EditLessonView,
     },
     {
       path: "/:catchAll(.*)",

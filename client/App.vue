@@ -25,12 +25,15 @@ onBeforeMount(async () => {
   <header>
     <nav>
       <div class="title">
-        <img src="@/assets/images/logo.svg" />
+        <img src="@/assets/images/HowToLogo.svg" />
         <RouterLink :to="{ name: 'Home' }">
-          <h1>Social Media App</h1>
+          <h1>HowTo</h1>
         </RouterLink>
       </div>
       <ul>
+        <!-- <li>
+          <RouterLink :to="{ name: 'Create Lesson' }" :class="{ underline: currentRouteName == 'Create Lesson' }"> Create Lesson </RouterLink>
+        </li> -->
         <li>
           <RouterLink :to="{ name: 'Home' }" :class="{ underline: currentRouteName == 'Home' }"> Home </RouterLink>
         </li>
@@ -54,7 +57,7 @@ onBeforeMount(async () => {
 
 nav {
   padding: 1em 2em;
-  background-color: lightgray;
+  background-color: rgb(32, 192, 255);
   display: flex;
   align-items: center;
 }
@@ -62,6 +65,7 @@ nav {
 h1 {
   font-size: 2em;
   margin: 0;
+  /* color: white; */
 }
 
 .title {

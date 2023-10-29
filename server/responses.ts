@@ -1,7 +1,9 @@
-import { User } from "./app";
+import { LessonDoc } from "concepts/lesson";
+import { Exercise, Question, User, Video } from "./app";
 import { AlreadyFriendsError, FriendNotFoundError, FriendRequestAlreadyExistsError, FriendRequestDoc, FriendRequestNotFoundError } from "./concepts/friend";
 import { PostAuthorNotMatchError, PostDoc } from "./concepts/post";
 import { Router } from "./framework/router";
+import { ExerciseDoc } from "concepts/exercise";
 
 /**
  * This class does useful conversions for the frontend.
@@ -25,6 +27,58 @@ export default class Responses {
   static async posts(posts: PostDoc[]) {
     const authors = await User.idsToUsernames(posts.map((post) => post.author));
     return posts.map((post, i) => ({ ...post, author: authors[i] }));
+  }
+
+  /**
+   * Convert LessonDoc into more readable format for the frontend by converting the author id into a username.
+   */
+  static async lesson(lesson: LessonDoc | null) {
+    if (!lesson) {
+      return lesson;
+    }
+    const author = await User.getUserById(lesson.author);
+    const subLessons: any[] = [];
+    for (const {subLessonId, index} of lesson.subLessons.map((subLessonId, index) => ({ subLessonId, index}))) {
+      if (lesson.subLessonTypes[index] === 'exercise') {
+        subLessons.push(await Responses.exercise(await Exercise.getExerciseById(subLessonId)));
+      } else if (lesson.subLessonTypes[index] === 'video') {
+        subLessons.push(await Video.getVideoById(subLessonId));
+      }
+    }
+    return { ...lesson, author: author.username, subLessons };
+  }
+
+  /**
+   * Same as {@link lesson} but for an array of PostDoc for improved performance.
+   */
+  static async lessons(lessons: LessonDoc[]) {
+    const authors = await User.idsToUsernames(lessons.map((lesson) => lesson.author));
+    const formattedLessons = [];
+
+    for (const {lesson, i} of lessons.map((lesson, i) => ({lesson, i}))) {
+      const subLessons: any[] = [];
+      for (const {subLessonId, index} of lesson.subLessons.map((subLessonId, index) => ({ subLessonId, index}))) {
+        if (lesson.subLessonTypes[index] === 'exercise') {
+          subLessons.push(Responses.exercise(await Exercise.getExerciseById(subLessonId)));
+        } else if (lesson.subLessonTypes[index] === 'video') {
+          subLessons.push(await Video.getVideoById(subLessonId));
+        }
+      }
+      formattedLessons.push({...lesson, author: authors[i], subLessons})
+    }
+    return formattedLessons;
+  }
+
+  /**
+   * Convert ExerciseDoc into more readable format for the frontend by converting the questionIds into QuestionDocs.
+   */
+  static async exercise(exercise: ExerciseDoc) {
+    const questions = [];
+    for (const questionId of exercise.questions) {
+      const question = await Question.getQuestionById(questionId);
+      questions.push(question);
+    }
+    return { ...exercise, questions };
   }
 
   /**
